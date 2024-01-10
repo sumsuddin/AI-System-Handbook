@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Get the latest tag
+latest_tag=$(git describe --tags --abbrev=0)
+
+# Determine the type of changes since the last release
+changes=$(git log $latest_tag..HEAD --oneline)
+
+if [ -z "$changes" ]; then
+    echo "No changes detected."
+    exit
+fi
+
+echo $changes
+
+major_changes=$(echo "$changes" | grep -i "BREAKING CHANGE")
+minor_changes=$(echo "$changes" | grep -i "feat")
+patch_changes=$(echo "$changes" | grep -i "fix")
+
+# Bump version based on changes
+if [ -n "$major_changes" ]; then
+    bump="major"
+elif [ -n "$minor_changes" ]; then
+    bump="minor"
+else
+    bump="patch"
+fi
+
+# Get current version
+current_version=$(echo $latest_tag)
+
+# Perform version bump
+new_version=$(semver bump $bump $current_version)
+
+# Update version in project files
+sed -i "s/$current_version/$new_version/g" version.txt
+
+# Commit and tag the new version
+git commit -a -m "chore(release): $new_version" -m "This Release Includes Following Changes:" -m "$changes"
+git tag $new_version
+git push origin $new_version
